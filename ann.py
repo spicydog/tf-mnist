@@ -5,48 +5,42 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
+LEARNING_RATE = 0.003
+
 # length of the flatten images
 LENGTH = 28 * 28
+OUTPUT = 10
 
 # layers
-K = 200
-L = 100
-M = 60
-N = 30
-O = 10
+LAYERS = [LENGTH, 500, 100, 60, 30, OUTPUT]
+
+
+def gen_weight_bias(layer):
+    curr_size = LAYERS[layer]
+    next_size = LAYERS[layer + 1]
+    return [tf.Variable(tf.truncated_normal([curr_size, next_size], stddev=0.1)),
+            tf.Variable(tf.zeros([next_size]))]
+
+
+def gen_hidden(layer):
+    lx = X if layer == 0 else gen_hidden(layer - 1)
+    lw, lb = gen_weight_bias(layer)
+    return tf.nn.relu(tf.matmul(lx, lw) + lb)
 
 # declare variables
-W1 = tf.Variable(tf.truncated_normal([LENGTH, K], stddev=0.1))
-B1 = tf.Variable(tf.zeros([K]))
-
-W2 = tf.Variable(tf.truncated_normal([K, L], stddev=0.1))
-B2 = tf.Variable(tf.zeros([L]))
-
-W3 = tf.Variable(tf.truncated_normal([L, M], stddev=0.1))
-B3 = tf.Variable(tf.zeros([M]))
-
-W4 = tf.Variable(tf.truncated_normal([M, N], stddev=0.1))
-B4 = tf.Variable(tf.zeros([N]))
-
-W5 = tf.Variable(tf.truncated_normal([N, O], stddev=0.1))
-B5 = tf.Variable(tf.zeros([O]))
-
 X = tf.placeholder(tf.float32, [None, LENGTH])
 X = tf.reshape(X, [-1, LENGTH])
 
-Y1 = tf.nn.relu(tf.matmul(X, W1) + B1)
-Y2 = tf.nn.relu(tf.matmul(Y1, W2) + B2)
-Y3 = tf.nn.relu(tf.matmul(Y2, W3) + B3)
-Y4 = tf.nn.relu(tf.matmul(Y3, W4) + B4)
-Y = tf.nn.softmax(tf.matmul(Y4, W5) + B5)
+[w, b] = gen_weight_bias(len(LAYERS) - 2)
+Y = tf.nn.softmax(tf.matmul(gen_hidden(len(LAYERS) - 3), w) + b)
 
-Y_ = tf.placeholder(tf.float32, [None, 10])
+Y_ = tf.placeholder(tf.float32, [None, OUTPUT])
 cross_entropy = -tf.reduce_sum(Y_ * tf.log(Y))
 
 is_correct = tf.equal(tf.argmax(Y, 1), tf.argmax(Y_, 1))
 accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
 
-optimizer = tf.train.GradientDescentOptimizer(0.003)
+optimizer = tf.train.GradientDescentOptimizer(LEARNING_RATE)
 train_step = optimizer.minimize(cross_entropy)
 
 init = tf.global_variables_initializer()
@@ -67,7 +61,7 @@ for i in range(1000):
 
     # evaluate accuracy with train data
     train_accuracy, train_cross_entropy = sess.run([accuracy, cross_entropy], feed_dict=train_data)
-    print("training", i+1, ":", train_accuracy, train_cross_entropy)
+    print("training", i + 1, ":", train_accuracy, train_cross_entropy)
 
 # evaluate accuracy with test data
 test_data = {X: mnist.test.images, Y_: mnist.test.labels}
